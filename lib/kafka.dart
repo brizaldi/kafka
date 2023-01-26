@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:quiver/collection.dart';
 
 import 'common.dart';

@@ -8,12 +8,12 @@ import '../setup.dart';
 void main() {
   group('ProduceApi:', () {
     String _topicName = 'dartKafkaTest';
-    Broker _broker;
-    KafkaSession _session;
+    late Broker _broker;
+    late KafkaSession _session;
 
     setUp(() async {
       var ip = await getDefaultHost();
-      _session = new KafkaSession([new ContactPoint(ip, 9092)]);
+      _session = KafkaSession([ContactPoint(ip, 9092)]);
       var metadata = await _session.getMetadata([_topicName].toSet());
       var leaderId =
           metadata.getTopicMetadata(_topicName).getPartition(0).leader;
@@ -25,9 +25,8 @@ void main() {
     });
 
     test('it publishes messages to Kafka topic', () async {
-      var request = new ProduceRequest(1, 1000, [
-        new ProduceEnvelope(
-            _topicName, 0, [new Message('hello world'.codeUnits)])
+      var request = ProduceRequest(1, 1000, [
+        ProduceEnvelope(_topicName, 0, [Message('hello world'.codeUnits)])
       ]);
       ProduceResponse response = await _session.send(_broker, request);
       expect(response.results, hasLength(1));
@@ -37,13 +36,13 @@ void main() {
     });
 
     test('it publishes GZip encoded messages to Kafka topic', () async {
-      var request = new ProduceRequest(1, 1000, [
-        new ProduceEnvelope(
+      var request = ProduceRequest(1, 1000, [
+        ProduceEnvelope(
             _topicName,
             0,
             [
-              new Message('hello world'.codeUnits),
-              new Message('peace and love'.codeUnits)
+              Message('hello world'.codeUnits),
+              Message('peace and love'.codeUnits)
             ],
             compression: KafkaCompression.gzip)
       ]);

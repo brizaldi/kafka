@@ -2,7 +2,7 @@ part of kafka.protocol;
 
 /// Base interface for all Kafka API requests.
 abstract class KafkaRequest {
-  static final _random = new Random();
+  static final _random = Random();
 
   final int correlationId;
 

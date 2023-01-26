@@ -47,7 +47,7 @@ class Consumer {
   OffsetOutOfRangeBehavior onOffsetOutOfRange =
       OffsetOutOfRangeBehavior.resetToEarliest;
 
-  /// Creates new consumer identified by [consumerGroup].
+  /// Creates consumer identified by [consumerGroup].
   Consumer(this.session, this.consumerGroup, this.topicPartitions,
       this.maxWaitTime, this.minBytes);
 
@@ -55,8 +55,8 @@ class Consumer {
   /// will stop after exactly [limit] messages have been retrieved. If no
   /// specific limit is set it'll default to `-1` and will consume all incoming
   /// messages continuously.
-  Stream<MessageEnvelope> consume({int limit: -1}) {
-    var controller = new _MessageStreamController(limit);
+  Stream<MessageEnvelope> consume({int limit = -1}) {
+    var controller = _MessageStreamController(limit);
 
     Future<List<_ConsumerWorker>> list = _buildWorkers();
     list.then((workers) {
@@ -70,8 +70,7 @@ class Consumer {
         f.then((_) {
           remaining--;
           if (remaining == 0) {
-            kafkaLogger
-                ?.info('Consumer: All workers are done. Closing stream.');
+            kafkaLogger.info('Consumer: All workers are done. Closing stream.');
             controller.close();
           }
         }, onError: (error, stackTrace) {
@@ -97,7 +96,7 @@ class Consumer {
   /// Currently batches are formed on per broker basis, meaning each batch will
   /// always contain messages from one particular broker.
   Stream<BatchEnvelope> batchConsume(int maxBatchSize) {
-    var controller = new _BatchStreamController();
+    var controller = _BatchStreamController();
 
     Future<List<_ConsumerWorker>> list = _buildWorkers();
     list.then((workers) {
@@ -113,8 +112,7 @@ class Consumer {
           kafkaLogger.info('Consumer: worker finished.');
           remaining--;
           if (remaining == 0) {
-            kafkaLogger
-                ?.info('Consumer: All workers are done. Closing stream.');
+            kafkaLogger.info('Consumer: All workers are done. Closing stream.');
             controller.close();
           }
         }, onError: (error, stackTrace) {
@@ -130,26 +128,25 @@ class Consumer {
 
   Future<List<_ConsumerWorker>> _buildWorkers() async {
     var meta = await session.getMetadata(topicPartitions.keys.toSet());
-    var topicsByBroker = new Map<Broker, Map<String, Set<int>>>();
+    var topicsByBroker = Map<Broker, Map<String, Set<int>>>();
 
     topicPartitions.forEach((topic, partitions) {
       partitions.forEach((p) {
         var leader = meta.getTopicMetadata(topic).getPartition(p).leader;
         var broker = meta.getBroker(leader);
         if (topicsByBroker.containsKey(broker) == false) {
-          topicsByBroker[broker] = new Map<String, Set<int>>();
+          topicsByBroker[broker] = Map<String, Set<int>>();
         }
-        if (topicsByBroker[broker].containsKey(topic) == false) {
-          topicsByBroker[broker][topic] = new Set<int>();
+        if (topicsByBroker[broker]?.containsKey(topic) == false) {
+          topicsByBroker[broker]![topic] = Set<int>();
         }
-        topicsByBroker[broker][topic].add(p);
+        topicsByBroker[broker]?[topic]?.add(p);
       });
     });
 
-    var workers = new List<_ConsumerWorker>();
+    var workers = <_ConsumerWorker>[];
     topicsByBroker.forEach((host, topics) {
-      var worker = new _ConsumerWorker(
-          session, host, topics, maxWaitTime, minBytes,
+      var worker = _ConsumerWorker(session, host, topics, maxWaitTime, minBytes,
           group: consumerGroup);
       worker.onOffsetOutOfRange = onOffsetOutOfRange;
       workers.add(worker);
@@ -162,7 +159,7 @@ class Consumer {
 class _MessageStreamController {
   final int limit;
   final StreamController<MessageEnvelope> _controller =
-      new StreamController<MessageEnvelope>();
+      StreamController<MessageEnvelope>();
   int _added = 0;
   bool _cancelled = false;
 
@@ -183,7 +180,7 @@ class _MessageStreamController {
     return false;
   }
 
-  void addError(Object error, [StackTrace stackTrace]) {
+  void addError(Object error, [StackTrace? stackTrace]) {
     _controller.addError(error, stackTrace);
   }
 
@@ -200,7 +197,7 @@ class _MessageStreamController {
 class _ConsumerWorker {
   final KafkaSession session;
   final Broker host;
-  final ConsumerGroup group;
+  final ConsumerGroup? group;
   final Map<String, Set<int>> topicPartitions;
   final int maxWaitTime;
   final int minBytes;
@@ -208,39 +205,48 @@ class _ConsumerWorker {
   OffsetOutOfRangeBehavior onOffsetOutOfRange =
       OffsetOutOfRangeBehavior.resetToEarliest;
 
-  _ConsumerWorker(this.session, this.host, this.topicPartitions,
-      this.maxWaitTime, this.minBytes,
-      {this.group});
+  _ConsumerWorker(
+    this.session,
+    this.host,
+    this.topicPartitions,
+    this.maxWaitTime,
+    this.minBytes, {
+    this.group,
+  });
 
   Future run(_MessageStreamController controller) async {
     kafkaLogger
-        ?.info('Consumer: Running worker on host ${host.host}:${host.port}');
+        .info('Consumer: Running worker on host ${host.host}:${host.port}');
 
     while (controller.canAdd) {
       var request = await _createRequest();
-      kafkaLogger?.fine('Consumer: Sending fetch request to ${host}.');
+      kafkaLogger.fine('Consumer: Sending fetch request to ${host}.');
       FetchResponse response = await session.send(host, request);
       var didReset = await _checkOffsets(response);
       if (didReset) {
-        kafkaLogger?.warning(
+        kafkaLogger.warning(
             'Offsets were reset to ${onOffsetOutOfRange}. Forcing re-fetch.');
         continue;
       }
       for (var item in response.results) {
         for (var offset in item.messageSet.messages.keys) {
           var message = item.messageSet.messages[offset];
-          var envelope = new MessageEnvelope(
-              item.topicName, item.partitionId, offset, message);
+          var envelope = MessageEnvelope(
+            item.topicName,
+            item.partitionId,
+            offset,
+            message,
+          );
           if (!controller.add(envelope)) {
             return;
           } else {
             var result = await envelope.result;
             if (result.status == _ProcessingStatus.commit) {
               var offsets = [
-                new ConsumerOffset(item.topicName, item.partitionId, offset,
+                ConsumerOffset(item.topicName, item.partitionId, offset,
                     result.commitMetadata)
               ];
-              await group.commitOffsets(offsets, -1, '');
+              await group?.commitOffsets(offsets, -1, '');
             } else if (result.status == _ProcessingStatus.cancel) {
               controller.cancel();
               return;
@@ -252,7 +258,7 @@ class _ConsumerWorker {
   }
 
   Future runBatched(_BatchStreamController controller, int maxBatchSize) async {
-    kafkaLogger?.info(
+    kafkaLogger.info(
         'Consumer: Running batch worker on host ${host.host}:${host.port}');
 
     while (controller.canAdd) {
@@ -260,7 +266,7 @@ class _ConsumerWorker {
       FetchResponse response = await session.send(host, request);
       var didReset = await _checkOffsets(response);
       if (didReset) {
-        kafkaLogger?.warning(
+        kafkaLogger.warning(
             'Offsets were reset to ${onOffsetOutOfRange}. Forcing re-fetch.');
         continue;
       }
@@ -269,7 +275,7 @@ class _ConsumerWorker {
         if (!controller.add(batch)) return;
         var result = await batch.result;
         if (result.status == _ProcessingStatus.commit) {
-          await group.commitOffsets(batch.offsetsToCommit, -1, '');
+          await group?.commitOffsets(batch.offsetsToCommit.toList(), -1, '');
         } else if (result.status == _ProcessingStatus.cancel) {
           controller.cancel();
           return;
@@ -279,15 +285,17 @@ class _ConsumerWorker {
   }
 
   Iterable<BatchEnvelope> responseToBatches(
-      FetchResponse response, int maxBatchSize) sync* {
-    BatchEnvelope batch;
+    FetchResponse response,
+    int maxBatchSize,
+  ) sync* {
+    BatchEnvelope? batch;
     for (var item in response.results) {
       for (var offset in item.messageSet.messages.keys) {
         var message = item.messageSet.messages[offset];
-        var envelope = new MessageEnvelope(
-            item.topicName, item.partitionId, offset, message);
+        var envelope =
+            MessageEnvelope(item.topicName, item.partitionId, offset, message);
 
-        if (batch == null) batch = new BatchEnvelope();
+        if (batch == null) batch = BatchEnvelope();
         if (batch.items.length < maxBatchSize) {
           batch.items.add(envelope);
         }
@@ -304,28 +312,28 @@ class _ConsumerWorker {
   }
 
   Future<bool> _checkOffsets(FetchResponse response) async {
-    var topicsToReset = new Map<String, Set<int>>();
+    var topicsToReset = Map<String, Set<int>>();
     for (var result in response.results) {
       if (result.errorCode == KafkaServerError.OffsetOutOfRange) {
-        kafkaLogger?.warning(
+        kafkaLogger.warning(
             'Consumer: received API error 1 for topic ${result.topicName}:${result.partitionId}');
         if (!topicsToReset.containsKey(result.topicName)) {
-          topicsToReset[result.topicName] = new Set();
+          topicsToReset[result.topicName] = Set();
         }
-        topicsToReset[result.topicName].add(result.partitionId);
-        kafkaLogger?.info('Topics to reset: ${topicsToReset}');
+        topicsToReset[result.topicName]?.add(result.partitionId);
+        kafkaLogger.info('Topics to reset: ${topicsToReset}');
       }
     }
 
     if (topicsToReset.isNotEmpty) {
       switch (onOffsetOutOfRange) {
         case OffsetOutOfRangeBehavior.throwError:
-          throw new KafkaServerError(1);
+          throw KafkaServerError(1);
         case OffsetOutOfRangeBehavior.resetToEarliest:
-          await group.resetOffsetsToEarliest(topicsToReset);
+          await group?.resetOffsetsToEarliest(topicsToReset);
           break;
         case OffsetOutOfRangeBehavior.resetToLatest:
-          await group.resetOffsetsToLatest(topicsToReset);
+          await group?.resetOffsetsToLatest(topicsToReset);
           break;
       }
       return true;
@@ -335,8 +343,8 @@ class _ConsumerWorker {
   }
 
   Future<FetchRequest> _createRequest() async {
-    var offsets = await group.fetchOffsets(topicPartitions);
-    var request = new FetchRequest(maxWaitTime, minBytes);
+    var offsets = await group?.fetchOffsets(topicPartitions) ?? [];
+    var request = FetchRequest(maxWaitTime, minBytes);
     for (var o in offsets) {
       request.add(o.topicName, o.partitionId, o.offset + 1);
     }
@@ -374,12 +382,17 @@ class MessageEnvelope {
   final int offset;
 
   /// Actual message received from Kafka broker.
-  final Message message;
+  final Message? message;
 
-  Completer<_ProcessingResult> _completer = new Completer<_ProcessingResult>();
+  Completer<_ProcessingResult> _completer = Completer<_ProcessingResult>();
 
-  /// Creates new envelope.
-  MessageEnvelope(this.topicName, this.partitionId, this.offset, this.message);
+  /// Creates envelope.
+  MessageEnvelope(
+    this.topicName,
+    this.partitionId,
+    this.offset,
+    this.message,
+  );
 
   Future<_ProcessingResult> get result => _completer.future;
 
@@ -388,26 +401,26 @@ class MessageEnvelope {
   /// consumerGroup functionality is not used (like in the [Fetcher]) then
   /// this method's behaviour will be the same as in [ack] method.
   void commit(String metadata) {
-    _completer.complete(new _ProcessingResult.commit(metadata));
+    _completer.complete(_ProcessingResult.commit(metadata));
   }
 
   /// Signals that message has been processed and we are ready for
   /// the next one. This method will **not** trigger offset commit if this
   /// envelope has been created by a high-level [Consumer].
   void ack() {
-    _completer.complete(new _ProcessingResult.ack());
+    _completer.complete(_ProcessingResult.ack());
   }
 
   /// Signals to consumer to cancel any further deliveries and close the stream.
   void cancel() {
-    _completer.complete(new _ProcessingResult.cancel());
+    _completer.complete(_ProcessingResult.cancel());
   }
 }
 
 /// StreamController for batch consuming of messages.
 class _BatchStreamController {
   final StreamController<BatchEnvelope> _controller =
-      new StreamController<BatchEnvelope>();
+      StreamController<BatchEnvelope>();
   bool _cancelled = false;
 
   bool get canAdd => (_cancelled == false);
@@ -423,7 +436,7 @@ class _BatchStreamController {
     return false;
   }
 
-  void addError(Object error, [StackTrace stackTrace]) {
+  void addError(Object error, [StackTrace? stackTrace]) {
     _controller.addError(error, stackTrace);
   }
 
@@ -438,12 +451,12 @@ class _BatchStreamController {
 
 /// Envelope for message batches used by `Consumer.batchConsume`.
 class BatchEnvelope {
-  final List<MessageEnvelope> items = new List();
+  final List<MessageEnvelope> items = [];
 
-  Completer<_ProcessingResult> _completer = new Completer<_ProcessingResult>();
+  Completer<_ProcessingResult> _completer = Completer<_ProcessingResult>();
   Future<_ProcessingResult> get result => _completer.future;
 
-  String commitMetadata;
+  String? commitMetadata;
 
   /// Signals that batch has been processed and it's offsets can
   /// be committed. In case if
@@ -451,36 +464,40 @@ class BatchEnvelope {
   /// this method's behaviour will be the same as in [ack] method.
   void commit(String metadata) {
     commitMetadata = metadata;
-    _completer.complete(new _ProcessingResult.commit(metadata));
+    _completer.complete(_ProcessingResult.commit(metadata));
   }
 
   /// Signals that batch has been processed and we are ready for
   /// the next one. This method will **not** trigger offset commit if this
   /// envelope has been created by a high-level [Consumer].
   void ack() {
-    _completer.complete(new _ProcessingResult.ack());
+    _completer.complete(_ProcessingResult.ack());
   }
 
   /// Signals to consumer to cancel any further deliveries and close the stream.
   void cancel() {
-    _completer.complete(new _ProcessingResult.cancel());
+    _completer.complete(_ProcessingResult.cancel());
   }
 
   Iterable<ConsumerOffset> get offsetsToCommit {
-    var grouped = new Map<TopicPartition, int>();
+    var grouped = Map<TopicPartition, int>();
     for (var envelope in items) {
-      var key = new TopicPartition(envelope.topicName, envelope.partitionId);
+      var key = TopicPartition(envelope.topicName, envelope.partitionId);
       if (!grouped.containsKey(key)) {
         grouped[key] = envelope.offset;
-      } else if (grouped[key] < envelope.offset) {
+      } else if (grouped[key] != null && grouped[key]! < envelope.offset) {
         grouped[key] = envelope.offset;
       }
     }
 
     List<ConsumerOffset> offsets = [];
     for (var key in grouped.keys) {
-      offsets.add(new ConsumerOffset(
-          key.topicName, key.partitionId, grouped[key], commitMetadata));
+      offsets.add(ConsumerOffset(
+        key.topicName,
+        key.partitionId,
+        grouped[key]!,
+        commitMetadata ?? '',
+      ));
     }
 
     return offsets;

@@ -5,11 +5,11 @@ import 'package:kafka/protocol.dart';
 
 void main() {
   group('BytesReader:', () {
-    KafkaBytesReader _reader;
-    List<int> _data;
+    late KafkaBytesReader _reader;
+    late List<int> _data;
 
     setUp(() {
-      var builder = new KafkaBytesBuilder();
+      var builder = KafkaBytesBuilder();
       builder
         ..addInt8(53)
         ..addInt16(3541)
@@ -18,13 +18,13 @@ void main() {
         ..addBytes([12, 43, 83])
         ..addArray(['one', 'two'], KafkaType.string);
       _data = builder.takeBytes();
-      _reader = new KafkaBytesReader.fromBytes(_data);
+      _reader = KafkaBytesReader.fromBytes(_data);
     });
 
     test('it indicates end of buffer', () {
-      var builder = new KafkaBytesBuilder();
+      var builder = KafkaBytesBuilder();
       builder.addInt8(53);
-      _reader = new KafkaBytesReader.fromBytes(builder.takeBytes());
+      _reader = KafkaBytesReader.fromBytes(builder.takeBytes());
       expect(_reader.length, equals(1));
       expect(_reader.isEOF, isFalse);
       expect(_reader.isNotEOF, isTrue);
@@ -43,9 +43,9 @@ void main() {
     });
 
     test('it supports null for bytes type', () {
-      var builder = new KafkaBytesBuilder();
+      var builder = KafkaBytesBuilder();
       builder.addBytes(null);
-      var reader = new KafkaBytesReader.fromBytes(builder.takeBytes());
+      var reader = KafkaBytesReader.fromBytes(builder.takeBytes());
       expect(reader.readBytes(), equals(null));
     });
   });

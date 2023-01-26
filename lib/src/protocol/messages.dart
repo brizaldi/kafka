@@ -6,37 +6,37 @@ class MessageSet {
   final Map<int, Message> _messages;
 
   /// Map of message offsets to corresponding messages.
-  Map<int, Message> get messages => new UnmodifiableMapView(_messages);
+  Map<int, Message> get messages => UnmodifiableMapView(_messages);
 
   /// Number of messages in this set.
   int get length => _messages.length;
 
   MessageSet._(this._messages);
 
-  /// Builds new message set for publishing.
+  /// Builds message set for publishing.
   factory MessageSet.build(ProduceEnvelope envelope) {
     if (envelope.compression == KafkaCompression.none) {
-      return new MessageSet._(envelope.messages.asMap());
+      return MessageSet._(envelope.messages.asMap());
     } else {
       if (envelope.compression == KafkaCompression.snappy)
-        throw new ArgumentError(
+        throw ArgumentError(
             'Snappy compression is not supported yet by the client.');
 
-      var codec = new GZipCodec();
-      var innerEnvelope = new ProduceEnvelope(
+      var codec = GZipCodec();
+      var innerEnvelope = ProduceEnvelope(
           envelope.topicName, envelope.partitionId, envelope.messages);
-      var innerMessageSet = new MessageSet.build(innerEnvelope);
+      var innerMessageSet = MessageSet.build(innerEnvelope);
       var value = codec.encode(innerMessageSet.toBytes());
-      var attrs = new MessageAttributes(KafkaCompression.gzip);
+      var attrs = MessageAttributes(KafkaCompression.gzip);
 
-      return new MessageSet._({0: new Message(value, attributes: attrs)});
+      return MessageSet._({0: Message(value, attributes: attrs)});
     }
   }
 
-  /// Creates new MessageSet from provided data.
+  /// Creates MessageSet from provided data.
   factory MessageSet.fromBytes(KafkaBytesReader reader) {
     int messageSize = -1;
-    var messages = new Map<int, Message>();
+    var messages = Map<int, Message>();
     while (reader.isNotEOF) {
       try {
         int offset = reader.readInt64();
@@ -46,54 +46,57 @@ class MessageSet {
         var data = reader.readRaw(messageSize - 4);
         var actualCrc = Crc32.signed(data);
         if (actualCrc != crc) {
-          kafkaLogger?.warning(
+          kafkaLogger.warning(
               'Message CRC sum mismatch. Expected crc: ${crc}, actual: ${actualCrc}');
-          throw new MessageCrcMismatchError(
+          throw MessageCrcMismatchError(
               'Expected crc: ${crc}, actual: ${actualCrc}');
         }
-        var messageReader = new KafkaBytesReader.fromBytes(data);
+        var messageReader = KafkaBytesReader.fromBytes(data);
         var message = _readMessage(messageReader);
         if (message.attributes.compression == KafkaCompression.none) {
           messages[offset] = message;
         } else {
           if (message.attributes.compression == KafkaCompression.snappy)
-            throw new ArgumentError(
+            throw ArgumentError(
                 'Snappy compression is not supported yet by the client.');
 
-          var codec = new GZipCodec();
+          var codec = GZipCodec();
           var innerReader =
-              new KafkaBytesReader.fromBytes(codec.decode(message.value));
-          var innerMessageSet = new MessageSet.fromBytes(innerReader);
+              KafkaBytesReader.fromBytes(codec.decode(message.value));
+          var innerMessageSet = MessageSet.fromBytes(innerReader);
           for (var innerOffset in innerMessageSet.messages.keys) {
-            messages[innerOffset] = innerMessageSet.messages[innerOffset];
+            final message = innerMessageSet.messages[innerOffset];
+            if (message != null) {
+              messages[innerOffset] = message;
+            }
           }
         }
       } on RangeError {
         // According to spec server is allowed to return partial
         // messages, so we just ignore it here and exit the loop.
         var remaining = reader.length - reader.offset;
-        kafkaLogger?.info(
+        kafkaLogger.info(
             'Encountered partial message. Expected message size: ${messageSize}, bytes left in buffer: ${remaining}, total buffer size ${reader.length}');
         break;
       }
     }
 
-    return new MessageSet._(messages);
+    return MessageSet._(messages);
   }
 
   static Message _readMessage(KafkaBytesReader reader) {
     reader.readInt8(); // magicByte
-    var attributes = new MessageAttributes.fromByte(reader.readInt8());
+    var attributes = MessageAttributes.fromByte(reader.readInt8());
     var key = reader.readBytes();
     var value = reader.readBytes();
 
-    return new Message(value, attributes: attributes, key: key);
+    return Message(value ?? [], attributes: attributes, key: key);
   }
 
   /// Converts this MessageSet into sequence of bytes according to Kafka
   /// protocol.
   List<int> toBytes() {
-    var builder = new KafkaBytesBuilder();
+    var builder = KafkaBytesBuilder();
     _messages.forEach((offset, message) {
       var messageData = _messageToBytes(message);
       builder.addInt64(offset);
@@ -105,7 +108,7 @@ class MessageSet {
   }
 
   List<int> _messageToBytes(Message message) {
-    var builder = new KafkaBytesBuilder();
+    var builder = KafkaBytesBuilder();
     builder.addInt8(0); // magicByte
     builder.addInt8(message.attributes.toInt());
     builder.addBytes(message.key);

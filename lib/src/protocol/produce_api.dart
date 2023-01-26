@@ -29,18 +29,21 @@ class ProduceRequest extends KafkaRequest {
 
   @override
   List<int> toBytes() {
-    var builder = new KafkaBytesBuilder.withRequestHeader(
-        apiKey, apiVersion, correlationId);
+    var builder =
+        KafkaBytesBuilder.withRequestHeader(apiKey, apiVersion, correlationId);
     builder.addInt16(requiredAcks);
     builder.addInt32(timeout);
 
-    Map<String, Map<int, MessageSet>> messageSets = new Map();
+    Map<String, Map<int, MessageSet>> messageSets = Map();
     for (var envelope in messages) {
       if (!messageSets.containsKey(envelope.topicName)) {
-        messageSets[envelope.topicName] = new Map<int, MessageSet>();
+        messageSets[envelope.topicName] = Map<int, MessageSet>();
       }
-      messageSets[envelope.topicName][envelope.partitionId] =
-          new MessageSet.build(envelope);
+
+      if (messageSets[envelope.topicName] is Map) {
+        messageSets[envelope.topicName]![envelope.partitionId] =
+            MessageSet.build(envelope);
+      }
     }
 
     builder.addInt32(messageSets.length);
@@ -63,7 +66,7 @@ class ProduceRequest extends KafkaRequest {
 
   @override
   createResponse(List<int> data) {
-    return new ProduceResponse.fromBytes(data);
+    return ProduceResponse.fromBytes(data);
   }
 }
 
@@ -76,12 +79,12 @@ class ProduceResponse {
 
   /// Creates response from the provided bytes [data].
   factory ProduceResponse.fromBytes(List<int> data) {
-    var reader = new KafkaBytesReader.fromBytes(data);
+    var reader = KafkaBytesReader.fromBytes(data);
     var size = reader.readInt32();
     assert(size == data.length - 4);
 
     reader.readInt32(); // correlationId
-    var results = new List<TopicProduceResult>();
+    var results = <TopicProduceResult>[];
     var topicCount = reader.readInt32();
     while (topicCount > 0) {
       var topicName = reader.readString();
@@ -90,13 +93,13 @@ class ProduceResponse {
         var partitionId = reader.readInt32();
         var errorCode = reader.readInt16();
         var offset = reader.readInt64();
-        results.add(new TopicProduceResult._(
-            topicName, partitionId, errorCode, offset));
+        results.add(
+            TopicProduceResult._(topicName, partitionId, errorCode, offset));
         partitionCount--;
       }
       topicCount--;
     }
-    return new ProduceResponse._(results);
+    return ProduceResponse._(results);
   }
 }
 

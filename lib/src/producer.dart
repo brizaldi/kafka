@@ -24,7 +24,7 @@ class Producer {
   /// number of acknowledgements in [requiredAcks].
   final int timeout;
 
-  /// Creates new instance of [Producer].
+  /// Creates instance of [Producer].
   ///
   /// [requiredAcks] specifies how many acknowledgements the servers should
   /// receive before responding to the request.
@@ -52,29 +52,34 @@ class Producer {
     return _produce(messages);
   }
 
-  Future<ProduceResult> _produce(List<ProduceEnvelope> messages,
-      {bool refreshMetadata: false,
-      int retryTimes: 3,
-      Duration retryInterval: const Duration(seconds: 1)}) async {
-    var topicNames = new Set<String>.from(messages.map((_) => _.topicName));
+  Future<ProduceResult> _produce(
+    List<ProduceEnvelope> messages, {
+    bool refreshMetadata = false,
+    int retryTimes = 3,
+    Duration retryInterval = const Duration(seconds: 1),
+  }) async {
+    var topicNames = Set<String>.from(messages.map((_) => _.topicName));
     var meta =
         await session.getMetadata(topicNames, invalidateCache: refreshMetadata);
 
-    var byBroker = new ListMultimap<Broker, ProduceEnvelope>.fromIterable(
-        messages, key: (ProduceEnvelope _) {
-      var leaderId =
-          meta.getTopicMetadata(_.topicName).getPartition(_.partitionId).leader;
-      return meta.getBroker(leaderId);
-    });
+    var byBroker = ListMultimap<Broker, ProduceEnvelope>.fromIterable(
+      messages,
+      key: (_) {
+        var leaderId = meta
+            .getTopicMetadata(_.topicName)
+            .getPartition(_.partitionId)
+            .leader;
+        return meta.getBroker(leaderId);
+      },
+    );
     kafkaLogger.fine('Producer: sending ProduceRequests');
 
-    Iterable<Future> futures = new List<Future>.from(byBroker.keys.map(
-        (broker) => session.send(broker,
-            new ProduceRequest(requiredAcks, timeout, byBroker[broker]))));
+    Iterable<Future> futures = List<Future>.from(byBroker.keys.map((broker) =>
+        session.send(
+            broker, ProduceRequest(requiredAcks, timeout, byBroker[broker]))));
 
     var result = await Future.wait(futures).then((responses) =>
-        new ProduceResult.fromResponses(
-            new List<ProduceResponse>.from(responses)));
+        ProduceResult.fromResponses(List<ProduceResponse>.from(responses)));
 
     if (!result.hasErrors) return result;
     if (retryTimes <= 0) return result;
@@ -85,15 +90,15 @@ class Producer {
       kafkaLogger.info(
           'Producer: will retry after ${retryInterval.inSeconds} seconds.');
       var retriesLeft = retryTimes - 1;
-      var newInterval = new Duration(seconds: retryInterval.inSeconds * 2);
-      return new Future<ProduceResult>.delayed(
+      var newInterval = Duration(seconds: retryInterval.inSeconds * 2);
+      return Future<ProduceResult>.delayed(
           retryInterval,
           () => _produce(messages,
               refreshMetadata: true,
               retryTimes: retriesLeft,
               retryInterval: newInterval));
     } else if (result.hasErrors) {
-      throw new ProduceError(result);
+      throw ProduceError(result);
     } else {
       return result;
     }
@@ -127,27 +132,27 @@ class ProduceResult {
 
   ProduceResult._(this.responses, Set<KafkaServerError> errors, this.offsets)
       : hasErrors = errors.isNotEmpty,
-        errors = new UnmodifiableListView(errors);
+        errors = UnmodifiableListView(errors);
 
   factory ProduceResult.fromResponses(Iterable<ProduceResponse> responses) {
-    var errors = new Set<KafkaServerError>();
-    var offsets = new Map<String, Map<int, int>>();
+    var errors = Set<KafkaServerError>();
+    var offsets = Map<String, Map<int, int>>();
     for (var r in responses) {
       var er = r.results
           .where((_) => _.errorCode != KafkaServerError.NoError)
-          .map((result) => new KafkaServerError(result.errorCode));
-      errors.addAll(new Set<KafkaServerError>.from(er));
+          .map((result) => KafkaServerError(result.errorCode));
+      errors.addAll(Set<KafkaServerError>.from(er));
       r.results.forEach((result) {
-        offsets.putIfAbsent(result.topicName, () => new Map());
-        offsets[result.topicName][result.partitionId] = result.offset;
+        offsets.putIfAbsent(result.topicName, () => Map());
+        offsets[result.topicName]?[result.partitionId] = result.offset;
       });
     }
 
-    return new ProduceResult._(responses, errors, offsets);
+    return ProduceResult._(responses.toList(), errors, offsets);
   }
 
   /// Returns `true` if this result contains server error with specified [code].
-  bool hasError(int code) => errors.contains(new KafkaServerError(code));
+  bool hasError(int code) => errors.contains(KafkaServerError(code));
 
   /// Returns `true` if at least one server error in this result can be retried.
   bool get hasRetriableErrors {

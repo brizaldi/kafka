@@ -48,7 +48,7 @@ class KafkaServerError {
   /// Numeric code of this server error.
   final int code;
 
-  static final Map<int, KafkaServerError> _instances = new Map();
+  static final Map<int, KafkaServerError> _instances = {};
 
   static const Map<int, String> _errorTexts = const {
     0: 'NoError',
@@ -90,17 +90,17 @@ class KafkaServerError {
   };
 
   /// String representation of this server error.
-  String get message => _errorTexts[code];
+  String get message => _errorTexts[code] ?? '';
 
   KafkaServerError._(this.code);
 
   /// Creates instance of KafkaServerError from numeric error code.
   factory KafkaServerError(int code) {
     if (!_instances.containsKey(code)) {
-      _instances[code] = new KafkaServerError._(code);
+      _instances[code] = KafkaServerError._(code);
     }
 
-    return _instances[code];
+    return _instances[code]!;
   }
 
   @override

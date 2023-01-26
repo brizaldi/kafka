@@ -6,23 +6,23 @@ import 'setup.dart';
 
 void main() {
   group('Fetcher:', () {
-    KafkaSession _session;
+    late KafkaSession _session;
     String _topicName = 'dartKafkaTest';
-    Map<int, int> _expectedOffsets = new Map();
-    List<TopicOffset> _initialOffsets = new List();
+    Map<int, int> _expectedOffsets = {};
+    List<TopicOffset> _initialOffsets = [];
 
     setUp(() async {
       var host = await getDefaultHost();
-      _session = new KafkaSession([new ContactPoint(host, 9092)]);
-      var producer = new Producer(_session, 1, 100);
+      _session = KafkaSession([ContactPoint(host, 9092)]);
+      var producer = Producer(_session, 1, 100);
       var result = await producer.produce([
-        new ProduceEnvelope(_topicName, 0, [new Message('msg1'.codeUnits)]),
-        new ProduceEnvelope(_topicName, 1, [new Message('msg2'.codeUnits)]),
-        new ProduceEnvelope(_topicName, 2, [new Message('msg3'.codeUnits)]),
+        ProduceEnvelope(_topicName, 0, [Message('msg1'.codeUnits)]),
+        ProduceEnvelope(_topicName, 1, [Message('msg2'.codeUnits)]),
+        ProduceEnvelope(_topicName, 2, [Message('msg3'.codeUnits)]),
       ]);
-      _expectedOffsets = result.offsets[_topicName];
-      result.offsets[_topicName].forEach((p, o) {
-        _initialOffsets.add(new TopicOffset(_topicName, p, o));
+      _expectedOffsets = result.offsets[_topicName] ?? {};
+      result.offsets[_topicName]?.forEach((p, o) {
+        _initialOffsets.add(TopicOffset(_topicName, p, o));
       });
     });
 
@@ -32,7 +32,7 @@ void main() {
 
     test('it can consume exact number of messages from multiple brokers',
         () async {
-      var fetcher = new Fetcher(_session, _initialOffsets);
+      var fetcher = Fetcher(_session, _initialOffsets);
       var fetchedCount = 0;
       await for (MessageEnvelope envelope in fetcher.fetch(limit: 3)) {
         expect(envelope.offset, _expectedOffsets[envelope.partitionId]);
@@ -43,7 +43,7 @@ void main() {
     });
 
     test('it can handle cancelation request', () async {
-      var fetcher = new Fetcher(_session, _initialOffsets);
+      var fetcher = Fetcher(_session, _initialOffsets);
       var fetchedCount = 0;
       await for (MessageEnvelope envelope in fetcher.fetch(limit: 3)) {
         expect(envelope.offset, _expectedOffsets[envelope.partitionId]);
@@ -54,8 +54,8 @@ void main() {
     });
 
     test('it can resolve earliest offset', () async {
-      var startOffsets = [new TopicOffset.earliest(_topicName, 0)];
-      var fetcher = new Fetcher(_session, startOffsets);
+      var startOffsets = [TopicOffset.earliest(_topicName, 0)];
+      var fetcher = Fetcher(_session, startOffsets);
 
       await for (MessageEnvelope envelope in fetcher.fetch(limit: 1)) {
         envelope.ack();

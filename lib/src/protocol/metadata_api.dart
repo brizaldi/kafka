@@ -10,9 +10,9 @@ class MetadataRequest extends KafkaRequest {
 
   /// List of topic names to fetch metadata for. If set to null or empty
   /// this request will fetch metadata for all topics.
-  final Set<String> topicNames;
+  final Set<String>? topicNames;
 
-  /// Creats new instance of Kafka MetadataRequest.
+  /// Creats instance of Kafka MetadataRequest.
   ///
   /// If [topicNames] is omitted or empty then metadata for all existing topics
   /// will be returned.
@@ -20,9 +20,9 @@ class MetadataRequest extends KafkaRequest {
 
   @override
   List<int> toBytes() {
-    var builder = new KafkaBytesBuilder.withRequestHeader(
-        apiKey, apiVersion, correlationId);
-    Set list = (this.topicNames is Set) ? this.topicNames : new Set();
+    var builder =
+        KafkaBytesBuilder.withRequestHeader(apiKey, apiVersion, correlationId);
+    Set list = (this.topicNames is Set) ? this.topicNames! : Set();
     builder.addArray(list, KafkaType.string);
 
     var body = builder.takeBytes();
@@ -33,7 +33,7 @@ class MetadataRequest extends KafkaRequest {
 
   @override
   createResponse(List<int> data) {
-    return new MetadataResponse.fromBytes(data);
+    return MetadataResponse.fromBytes(data);
   }
 }
 
@@ -49,21 +49,21 @@ class MetadataResponse {
 
   /// Creates response from binary data.
   factory MetadataResponse.fromBytes(List<int> data) {
-    var reader = new KafkaBytesReader.fromBytes(data);
+    var reader = KafkaBytesReader.fromBytes(data);
     var size = reader.readInt32();
     assert(size == data.length - 4);
 
     reader.readInt32(); // correlationId
 
     var brokers = reader.readArray(KafkaType.object, (reader) {
-      return new Broker(
+      return Broker(
           reader.readInt32(), reader.readString(), reader.readInt32());
     });
 
     var topicMetadata = reader.readArray(
-        KafkaType.object, (reader) => new TopicMetadata._readFrom(reader));
-    return new MetadataResponse._(new List<Broker>.from(brokers),
-        new List<TopicMetadata>.from(topicMetadata));
+        KafkaType.object, (reader) => TopicMetadata._readFrom(reader));
+    return MetadataResponse._(
+        List<Broker>.from(brokers), List<TopicMetadata>.from(topicMetadata));
   }
 }
 
@@ -78,10 +78,12 @@ class TopicMetadata {
   factory TopicMetadata._readFrom(KafkaBytesReader reader) {
     var errorCode = reader.readInt16();
     var topicName = reader.readString();
-    List partitions = reader.readArray(
-        KafkaType.object, (reader) => new PartitionMetadata._readFrom(reader));
+    final partitions = List<PartitionMetadata>.from(reader.readArray(
+      KafkaType.object,
+      (reader) => PartitionMetadata._readFrom(reader),
+    ));
     // ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
-    return new TopicMetadata._(errorCode, topicName, partitions);
+    return TopicMetadata._(errorCode, topicName, partitions);
   }
 
   PartitionMetadata getPartition(int partitionId) =>
@@ -100,21 +102,27 @@ class PartitionMetadata {
   final List<int> replicas;
   final List<int> inSyncReplicas;
 
-  PartitionMetadata._(this.partitionErrorCode, this.partitionId, this.leader,
-      this.replicas, this.inSyncReplicas);
+  PartitionMetadata._(
+    this.partitionErrorCode,
+    this.partitionId,
+    this.leader,
+    this.replicas,
+    this.inSyncReplicas,
+  );
 
   factory PartitionMetadata._readFrom(KafkaBytesReader reader) {
     var errorCode = reader.readInt16();
     var partitionId = reader.readInt32();
     var leader = reader.readInt32();
-    var replicas = reader.readArray(KafkaType.int32);
-    var inSyncReplicas = reader.readArray(KafkaType.int32);
+    var replicas = List<int>.from(reader.readArray(KafkaType.int32));
+    var inSyncReplicas = List<int>.from(reader.readArray(KafkaType.int32));
 
-    return new PartitionMetadata._(
-        errorCode,
-        partitionId,
-        leader,
-        replicas, // ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
-        inSyncReplicas);
+    return PartitionMetadata._(
+      errorCode,
+      partitionId,
+      leader,
+      replicas, // ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
+      inSyncReplicas,
+    );
   }
 }

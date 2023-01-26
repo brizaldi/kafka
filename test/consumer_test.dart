@@ -6,26 +6,25 @@ import 'setup.dart';
 
 void main() {
   group('Consumer:', () {
-    KafkaSession _session;
+    late KafkaSession _session;
     String _topicName = 'dartKafkaTest';
-    Map<int, int> _expectedOffsets = new Map();
+    Map<int, int> _expectedOffsets = {};
 
     setUp(() async {
-      var date = new DateTime.now().millisecondsSinceEpoch;
+      var date = DateTime.now().millisecondsSinceEpoch;
       _topicName = 'testTopic-${date}';
       var host = await getDefaultHost();
-      _session = new KafkaSession([new ContactPoint(host, 9092)]);
-      var producer = new Producer(_session, 1, 100);
+      _session = KafkaSession([ContactPoint(host, 9092)]);
+      var producer = Producer(_session, 1, 100);
       var result = await producer.produce([
-        new ProduceEnvelope(_topicName, 0, [new Message('msg1'.codeUnits)]),
-        new ProduceEnvelope(_topicName, 1, [new Message('msg2'.codeUnits)]),
-        new ProduceEnvelope(_topicName, 2, [new Message('msg3'.codeUnits)]),
+        ProduceEnvelope(_topicName, 0, [Message('msg1'.codeUnits)]),
+        ProduceEnvelope(_topicName, 1, [Message('msg2'.codeUnits)]),
+        ProduceEnvelope(_topicName, 2, [Message('msg3'.codeUnits)]),
       ]);
       if (result.hasErrors) {
-        throw new StateError(
-            'Consumer test: setUp failed to produce messages.');
+        throw StateError('Consumer test: setUp failed to produce messages.');
       }
-      _expectedOffsets = result.offsets[_topicName];
+      _expectedOffsets = result.offsets[_topicName] ?? {};
     });
 
     tearDown(() async {
@@ -37,9 +36,9 @@ void main() {
       var topics = {
         _topicName: [0, 1, 2].toSet()
       };
-      var consumer = new Consumer(
-          _session, new ConsumerGroup(_session, 'cg'), topics, 100, 1);
-      var consumedOffsets = new Map();
+      var consumer =
+          Consumer(_session, ConsumerGroup(_session, 'cg'), topics, 100, 1);
+      var consumedOffsets = Map();
       await for (MessageEnvelope envelope in consumer.consume(limit: 3)) {
         consumedOffsets[envelope.partitionId] = envelope.offset;
         expect(envelope.offset, _expectedOffsets[envelope.partitionId]);
@@ -54,9 +53,9 @@ void main() {
       var topics = {
         _topicName: [0, 1, 2].toSet()
       };
-      var consumer = new Consumer(
-          _session, new ConsumerGroup(_session, 'cg'), topics, 100, 1);
-      var consumedOffsets = new Map();
+      var consumer =
+          Consumer(_session, ConsumerGroup(_session, 'cg'), topics, 100, 1);
+      var consumedOffsets = Map();
       await for (MessageEnvelope envelope in consumer.consume(limit: 3)) {
         consumedOffsets[envelope.partitionId] = envelope.offset;
         expect(envelope.offset, _expectedOffsets[envelope.partitionId]);
@@ -64,7 +63,7 @@ void main() {
       }
       expect(consumedOffsets, _expectedOffsets);
 
-      var group = new ConsumerGroup(_session, 'cg');
+      var group = ConsumerGroup(_session, 'cg');
       var offsets = await group.fetchOffsets(topics);
       expect(offsets, hasLength(3));
       for (var o in offsets) {
@@ -76,9 +75,9 @@ void main() {
       var topics = {
         _topicName: [0, 1, 2].toSet()
       };
-      var consumer = new Consumer(
-          _session, new ConsumerGroup(_session, 'cg'), topics, 100, 1);
-      var consumedOffsets = new Map();
+      var consumer =
+          Consumer(_session, ConsumerGroup(_session, 'cg'), topics, 100, 1);
+      var consumedOffsets = Map();
       await for (MessageEnvelope envelope in consumer.consume(limit: 3)) {
         consumedOffsets[envelope.partitionId] = envelope.offset;
         expect(envelope.offset, _expectedOffsets[envelope.partitionId]);
@@ -95,9 +94,9 @@ void main() {
 
       var consume = () async {
         try {
-          var consumer = new Consumer(
-              _session, new ConsumerGroup(_session, 'cg'), topics, 100, 1);
-          var consumedOffsets = new Map();
+          var consumer =
+              Consumer(_session, ConsumerGroup(_session, 'cg'), topics, 100, 1);
+
           await for (MessageEnvelope envelope in consumer.consume(limit: 3)) {
             envelope.ack();
           }
@@ -116,9 +115,9 @@ void main() {
       var topics = {
         _topicName: [0, 1, 2].toSet()
       };
-      var consumer = new Consumer(
-          _session, new ConsumerGroup(_session, 'cg'), topics, 100, 1);
-      var consumedOffsets = new Map();
+      var consumer =
+          Consumer(_session, ConsumerGroup(_session, 'cg'), topics, 100, 1);
+      var consumedOffsets = Map();
 
       var first, last;
       await for (var batch in consumer.batchConsume(3)) {

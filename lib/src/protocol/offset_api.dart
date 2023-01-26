@@ -11,9 +11,9 @@ class OffsetRequest extends KafkaRequest {
   /// Unique ID assigned to the [host] within Kafka cluster.
   final int replicaId;
 
-  Map<String, List<_PartitionOffsetRequestInfo>> _topics = new Map();
+  Map<String, List<_PartitionOffsetRequestInfo>> _topics = Map();
 
-  /// Creates new instance of OffsetRequest.
+  /// Creates instance of OffsetRequest.
   ///
   /// The [replicaId] argument indicates unique ID assigned to the [host] within
   /// Kafka cluster. One can obtain this information via [MetadataRequest].
@@ -28,21 +28,25 @@ class OffsetRequest extends KafkaRequest {
   ///
   /// [maxNumberOfOffsets] indicates max number of offsets to return.
   void addTopicPartition(
-      String topicName, int partitionId, int time, int maxNumberOfOffsets) {
+    String topicName,
+    int partitionId,
+    int time,
+    int maxNumberOfOffsets,
+  ) {
     if (_topics.containsKey(topicName) == false) {
-      _topics[topicName] = new List();
+      _topics[topicName] = [];
     }
 
-    _topics[topicName].add(
-        new _PartitionOffsetRequestInfo(partitionId, time, maxNumberOfOffsets));
+    _topics[topicName]?.add(
+        _PartitionOffsetRequestInfo(partitionId, time, maxNumberOfOffsets));
   }
 
   /// Converts this request into a binary representation according to Kafka
   /// protocol.
   @override
   List<int> toBytes() {
-    var builder = new KafkaBytesBuilder.withRequestHeader(
-        apiKey, apiVersion, correlationId);
+    var builder =
+        KafkaBytesBuilder.withRequestHeader(apiKey, apiVersion, correlationId);
     builder.addInt32(replicaId);
 
     builder.addInt32(_topics.length);
@@ -64,7 +68,7 @@ class OffsetRequest extends KafkaRequest {
 
   @override
   createResponse(List<int> data) {
-    return new OffsetResponse.fromBytes(data);
+    return OffsetResponse.fromBytes(data);
   }
 }
 
@@ -96,28 +100,33 @@ class OffsetResponse {
 
   /// Creates OffsetResponse from the provided binary data.
   factory OffsetResponse.fromBytes(List<int> data) {
-    var reader = new KafkaBytesReader.fromBytes(data);
+    var reader = KafkaBytesReader.fromBytes(data);
     var size = reader.readInt32();
     assert(size == data.length - 4);
 
     reader.readInt32(); // correlationId
     var count = reader.readInt32();
-    var offsets = new List<TopicOffsets>();
+    var offsets = <TopicOffsets>[];
     while (count > 0) {
       var topicName = reader.readString();
       var partitionCount = reader.readInt32();
       while (partitionCount > 0) {
         var partitionId = reader.readInt32();
         var errorCode = reader.readInt16();
-        var partitionOffsets = reader.readArray(KafkaType.int64);
-        offsets.add(new TopicOffsets._(topicName, partitionId, errorCode,
-            partitionOffsets)); // ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
+        var partitionOffsets =
+            List<int>.from(reader.readArray(KafkaType.int64));
+        offsets.add(TopicOffsets._(
+          topicName,
+          partitionId,
+          errorCode,
+          partitionOffsets,
+        )); // ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
         partitionCount--;
       }
       count--;
     }
 
-    return new OffsetResponse._(offsets);
+    return OffsetResponse._(offsets);
   }
 }
 

@@ -23,7 +23,7 @@ class OffsetCommitRequest extends KafkaRequest {
   /// List of consumer offsets to be committed.
   final List<ConsumerOffset> offsets;
 
-  /// Creates new instance of [OffsetCommitRequest].
+  /// Creates instance of [OffsetCommitRequest].
   ///
   /// [host] must be current coordinator broker for [consumerGroup].
   OffsetCommitRequest(this.consumerGroup, this.offsets,
@@ -32,14 +32,15 @@ class OffsetCommitRequest extends KafkaRequest {
 
   @override
   List<int> toBytes() {
-    var builder = new KafkaBytesBuilder.withRequestHeader(
-        apiKey, apiVersion, correlationId);
+    var builder =
+        KafkaBytesBuilder.withRequestHeader(apiKey, apiVersion, correlationId);
 
     // TODO: replace groupBy with ListMultimap
     // ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
-    Map<String, List<ConsumerOffset>> groupedByTopic = groupBy(
-        offsets, (o) => o.topicName); // ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
-    var timestamp = new DateTime.now().millisecondsSinceEpoch;
+    Map<String, List<ConsumerOffset>> groupedByTopic =
+        Map<String, List<ConsumerOffset>>.from(groupBy(offsets,
+            (o) => o.topicName)); // ignore: STRONG_MODE_DOWN_CAST_COMPOSITE
+    var timestamp = DateTime.now().millisecondsSinceEpoch;
     builder.addString(consumerGroup);
     builder.addInt32(consumerGroupGenerationId);
     builder.addString(consumerId);
@@ -63,7 +64,7 @@ class OffsetCommitRequest extends KafkaRequest {
 
   @override
   createResponse(List<int> data) {
-    return new OffsetCommitResponse.fromData(data);
+    return OffsetCommitResponse.fromData(data);
   }
 }
 
@@ -75,7 +76,7 @@ class OffsetCommitResponse {
 
   factory OffsetCommitResponse.fromData(List<int> data) {
     List<OffsetCommitResult> offsets = [];
-    var reader = new KafkaBytesReader.fromBytes(data);
+    var reader = KafkaBytesReader.fromBytes(data);
     var size = reader.readInt32();
     assert(size == data.length - 4);
 
@@ -87,13 +88,13 @@ class OffsetCommitResponse {
       while (partitionCount > 0) {
         var partitionId = reader.readInt32();
         var errorCode = reader.readInt16();
-        offsets.add(new OffsetCommitResult(topicName, partitionId, errorCode));
+        offsets.add(OffsetCommitResult(topicName, partitionId, errorCode));
         partitionCount--;
       }
       count--;
     }
 
-    return new OffsetCommitResponse._(offsets);
+    return OffsetCommitResponse._(offsets);
   }
 }
 

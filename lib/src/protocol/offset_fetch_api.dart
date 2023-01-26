@@ -14,13 +14,13 @@ class OffsetFetchRequest extends KafkaRequest {
   /// Map of topic names and partition IDs.
   final Map<String, Set<int>> topics;
 
-  /// Creates new instance of [OffsetFetchRequest].
+  /// Creates instance of [OffsetFetchRequest].
   OffsetFetchRequest(this.consumerGroup, this.topics) : super();
 
   @override
   List<int> toBytes() {
-    var builder = new KafkaBytesBuilder.withRequestHeader(
-        apiKey, apiVersion, correlationId);
+    var builder =
+        KafkaBytesBuilder.withRequestHeader(apiKey, apiVersion, correlationId);
 
     builder.addString(consumerGroup);
     builder.addInt32(topics.length);
@@ -37,7 +37,7 @@ class OffsetFetchRequest extends KafkaRequest {
 
   @override
   createResponse(List<int> data) {
-    return new OffsetFetchResponse.fromData(data);
+    return OffsetFetchResponse.fromData(data);
   }
 }
 
@@ -48,12 +48,12 @@ class OffsetFetchResponse {
   OffsetFetchResponse._(this.offsets);
 
   factory OffsetFetchResponse.fromOffsets(List<ConsumerOffset> offsets) {
-    return new OffsetFetchResponse._(new List.from(offsets));
+    return OffsetFetchResponse._(List.from(offsets));
   }
 
   factory OffsetFetchResponse.fromData(List<int> data) {
     List<ConsumerOffset> offsets = [];
-    var reader = new KafkaBytesReader.fromBytes(data);
+    var reader = KafkaBytesReader.fromBytes(data);
     var size = reader.readInt32();
     assert(size == data.length - 4);
 
@@ -67,13 +67,12 @@ class OffsetFetchResponse {
         var offset = reader.readInt64();
         var metadata = reader.readString();
         var errorCode = reader.readInt16();
-        offsets.add(
-            new ConsumerOffset(topicName, id, offset, metadata, errorCode));
+        offsets.add(ConsumerOffset(topicName, id, offset, metadata, errorCode));
         partitionCount--;
       }
       count--;
     }
 
-    return new OffsetFetchResponse._(offsets);
+    return OffsetFetchResponse._(offsets);
   }
 }

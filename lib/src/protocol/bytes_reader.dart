@@ -2,7 +2,7 @@ part of kafka.protocol;
 
 /// Provides convenience methods read Kafka specific data types from a stream of bytes.
 class KafkaBytesReader {
-  Int8List _data;
+  late Int8List _data;
   int _offset = 0;
 
   /// Current position in this buffer.
@@ -19,12 +19,12 @@ class KafkaBytesReader {
 
   /// Creates reader from a list of bytes.
   KafkaBytesReader.fromBytes(List<int> data) {
-    this._data = new Int8List.fromList(data);
+    this._data = Int8List.fromList(data);
   }
 
   // Reads int8 from the data and returns it.
   int readInt8() {
-    var data = new ByteData.view(_data.buffer, _offset, 1);
+    var data = ByteData.view(_data.buffer, _offset, 1);
     var value = data.getInt8(0);
     _offset += 1;
 
@@ -33,7 +33,7 @@ class KafkaBytesReader {
 
   /// Reads 16-bit integer from the current position of this buffer.
   int readInt16() {
-    var data = new ByteData.view(_data.buffer, _offset, 2);
+    var data = ByteData.view(_data.buffer, _offset, 2);
     var value = data.getInt16(0);
     _offset += 2;
 
@@ -42,7 +42,7 @@ class KafkaBytesReader {
 
   /// Reads 32-bit integer from the current position of this buffer.
   int readInt32() {
-    var data = new ByteData.view(_data.buffer, _offset, 4);
+    var data = ByteData.view(_data.buffer, _offset, 4);
     var value = data.getInt32(0);
     _offset += 4;
 
@@ -51,7 +51,7 @@ class KafkaBytesReader {
 
   /// Reads 64-bit integer from the current position of this buffer.
   int readInt64() {
-    var data = new ByteData.view(_data.buffer, _offset, 8);
+    var data = ByteData.view(_data.buffer, _offset, 8);
     var value = data.getInt64(0);
     _offset += 8;
 
@@ -61,13 +61,13 @@ class KafkaBytesReader {
   String readString() {
     var length = readInt16();
     var value = _data.buffer.asInt8List(_offset, length).toList();
-    var valueAsString = UTF8.decode(value);
+    var valueAsString = utf8.decode(value);
     _offset += length;
 
     return valueAsString;
   }
 
-  List<int> readBytes() {
+  List<int>? readBytes() {
     var length = readInt32();
     if (length == -1) {
       return null;
@@ -78,10 +78,12 @@ class KafkaBytesReader {
     }
   }
 
-  List readArray(KafkaType itemType,
-      [dynamic objectReadHandler(KafkaBytesReader reader)]) {
+  List readArray(
+    KafkaType itemType, [
+    Function(KafkaBytesReader)? objectReadHandler,
+  ]) {
     var length = readInt32();
-    var items = new List();
+    var items = [];
     for (var i = 0; i < length; i++) {
       switch (itemType) {
         case KafkaType.int8:
@@ -104,7 +106,7 @@ class KafkaBytesReader {
           break;
         case KafkaType.object:
           if (objectReadHandler == null) {
-            throw new StateError('ObjectReadHandler must be provided');
+            throw StateError('ObjectReadHandler must be provided');
           }
           items.add(objectReadHandler(this));
           break;

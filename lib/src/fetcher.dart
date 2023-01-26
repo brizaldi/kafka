@@ -20,8 +20,8 @@ class Fetcher {
   ///
   /// It will start from specified [topicOffsets]. If no [limit] is set it will
   /// run continuously consuming all incoming messages.
-  Stream<MessageEnvelope> fetch({int limit: -1}) {
-    var controller = new _MessageStreamController(limit);
+  Stream<MessageEnvelope> fetch({int limit = -1}) {
+    var controller = _MessageStreamController(limit);
 
     Future<List<_FetcherWorker>> list = _buildWorkers(controller);
     list.then((workers) {
@@ -36,7 +36,7 @@ class Fetcher {
           remaining--;
           if (remaining == 0) {
             kafkaLogger
-                ?.info('Fetcher: All workers are done. Closing the stream.');
+                .info('Fetcher: All workers are done. Closing the stream.');
             controller.close();
           }
         });
@@ -48,9 +48,9 @@ class Fetcher {
 
   Future<List<_FetcherWorker>> _buildWorkers(
       _MessageStreamController controller) async {
-    var topicNames = new Set<String>.from(topicOffsets.map((_) => _.topicName));
+    var topicNames = Set<String>.from(topicOffsets.map((_) => _.topicName));
     var meta = await session.getMetadata(topicNames);
-    var offsetsByBroker = new Map<Broker, List<TopicOffset>>();
+    var offsetsByBroker = Map<Broker, List<TopicOffset>>();
 
     topicOffsets.forEach((offset) {
       var leader = meta
@@ -59,15 +59,14 @@ class Fetcher {
           .leader;
       var broker = meta.getBroker(leader);
       if (offsetsByBroker.containsKey(broker) == false) {
-        offsetsByBroker[broker] = new List();
+        offsetsByBroker[broker] = [];
       }
-      offsetsByBroker[broker].add(offset);
+      offsetsByBroker[broker]?.add(offset);
     });
 
-    var workers = new List<_FetcherWorker>();
+    var workers = <_FetcherWorker>[];
     offsetsByBroker.forEach((host, offsets) {
-      workers
-          .add(new _FetcherWorker(session, host, controller, offsets, 100, 1));
+      workers.add(_FetcherWorker(session, host, controller, offsets, 100, 1));
     });
 
     return workers;
@@ -86,7 +85,7 @@ class _FetcherWorker {
       this.startFromOffsets, this.maxWaitTime, this.minBytes);
 
   Future run() async {
-    kafkaLogger?.info(
+    kafkaLogger.info(
         'Fetcher: Running worker on broker ${broker.host}:${broker.port}');
     var offsets = startFromOffsets.toList();
 
@@ -98,7 +97,7 @@ class _FetcherWorker {
       for (var item in response.results) {
         for (var offset in item.messageSet.messages.keys) {
           var message = item.messageSet.messages[offset];
-          var envelope = new MessageEnvelope(
+          var envelope = MessageEnvelope(
               item.topicName, item.partitionId, offset, message);
           if (!controller.add(envelope)) {
             return;
@@ -111,7 +110,7 @@ class _FetcherWorker {
           }
         }
         if (item.messageSet.messages.isNotEmpty) {
-          var nextOffset = new TopicOffset(item.topicName, item.partitionId,
+          var nextOffset = TopicOffset(item.topicName, item.partitionId,
               item.messageSet.messages.keys.last + 1);
           var previousOffset = offsets.firstWhere((o) =>
               o.topicName == item.topicName &&
@@ -124,8 +123,8 @@ class _FetcherWorker {
   }
 
   Future<FetchRequest> _createRequest(List<TopicOffset> offsets) async {
-    var offsetMaster = new OffsetMaster(session);
-    var request = new FetchRequest(maxWaitTime, minBytes);
+    var offsetMaster = OffsetMaster(session);
+    var request = FetchRequest(maxWaitTime, minBytes);
     for (var o in offsets) {
       if (o.isEarliest) {
         var result = await offsetMaster.fetchEarliest({
@@ -146,7 +145,7 @@ class _FetcherWorker {
 
     for (var result in response.results) {
       if (result.errorCode != KafkaServerError.NoError) {
-        throw new KafkaServerError(result.errorCode);
+        throw KafkaServerError(result.errorCode);
       }
     }
   }

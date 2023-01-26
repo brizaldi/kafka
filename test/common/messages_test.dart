@@ -9,9 +9,8 @@ void main() {
         'compression can not be set on individual messages in produce envelope',
         () {
       expect(() {
-        new ProduceEnvelope('test', 0, [
-          new Message([1],
-              attributes: new MessageAttributes(KafkaCompression.gzip))
+        ProduceEnvelope('test', 0, [
+          Message([1], attributes: MessageAttributes(KafkaCompression.gzip))
         ]);
       }, throwsStateError);
     });
@@ -25,9 +24,9 @@ void main() {
     });
 
     test('convert to int', () {
-      expect(new MessageAttributes(KafkaCompression.none).toInt(), equals(0));
-      expect(new MessageAttributes(KafkaCompression.gzip).toInt(), equals(1));
-      expect(new MessageAttributes(KafkaCompression.snappy).toInt(), equals(2));
+      expect(MessageAttributes(KafkaCompression.none).toInt(), equals(0));
+      expect(MessageAttributes(KafkaCompression.gzip).toInt(), equals(1));
+      expect(MessageAttributes(KafkaCompression.snappy).toInt(), equals(2));
     });
   });
 }

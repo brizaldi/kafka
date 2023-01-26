@@ -15,4 +15,4 @@ const String dartKafkaId = 'dart_kafka';
 ///
 /// Doesn't do anything by default. You should set log level and add your handler
 /// in order to get logs.
-final Logger kafkaLogger = new Logger('Kafka');
+final Logger kafkaLogger = Logger('Kafka');

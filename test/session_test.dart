@@ -6,12 +6,12 @@ import 'setup.dart';
 
 void main() {
   group('Session:', () {
-    KafkaSession _session;
+    late KafkaSession _session;
     String _topicName = 'dartKafkaTest';
 
     setUp(() async {
       var host = await getDefaultHost();
-      _session = new KafkaSession([new ContactPoint(host, 9092)]);
+      _session = KafkaSession([ContactPoint(host, 9092)]);
     });
 
     tearDown(() async {
@@ -20,17 +20,17 @@ void main() {
 
     test('it can list existing topics', () async {
       var topics = await _session.listTopics();
-      expect(topics, new isInstanceOf<Set>());
+      expect(topics, isA<Set>());
       expect(topics, isNotEmpty);
       expect(topics, contains(_topicName));
     });
 
     test('it can fetch topic metadata', () async {
       var response = await _session.getMetadata([_topicName].toSet());
-      expect(response, new isInstanceOf<ClusterMetadata>());
+      expect(response, isA<ClusterMetadata>());
       expect(response.brokers, isNotEmpty);
       var topic = response.getTopicMetadata(_topicName);
-      expect(topic, new isInstanceOf<TopicMetadata>());
+      expect(topic, isA<TopicMetadata>());
       response = await _session.getMetadata([_topicName].toSet());
       var newTopic = response.getTopicMetadata(_topicName);
       expect(newTopic, same(topic));
@@ -46,7 +46,7 @@ void main() {
     });
 
     test('it fetches topic metadata for auto-created topics', () async {
-      var date = new DateTime.now().millisecondsSinceEpoch;
+      var date = DateTime.now().millisecondsSinceEpoch;
       var topicName = 'testTopic-${date}';
       var response = await _session.getMetadata([topicName].toSet());
       var topic = response.getTopicMetadata(topicName);

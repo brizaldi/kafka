@@ -8,28 +8,28 @@ import '../setup.dart';
 void main() {
   group('OffsetApi:', () {
     String _topicName = 'dartKafkaTest';
-    Broker _broker;
-    KafkaSession _session;
-    OffsetRequest _request;
-    int _offset;
+    late Broker _broker;
+    late KafkaSession _session;
+    late OffsetRequest _request;
+    late int _offset;
 
     setUp(() async {
       var ip = await getDefaultHost();
-      _session = new KafkaSession([new ContactPoint(ip, 9092)]);
+      _session = KafkaSession([ContactPoint(ip, 9092)]);
       var metadata = await _session.getMetadata([_topicName].toSet());
       var leaderId =
           metadata.getTopicMetadata(_topicName).getPartition(0).leader;
       _broker = metadata.getBroker(leaderId);
 
-      var now = new DateTime.now();
+      var now = DateTime.now();
       var _message = 'test:' + now.toIso8601String();
-      ProduceRequest produce = new ProduceRequest(1, 1000, [
-        new ProduceEnvelope(_topicName, 0, [new Message(_message.codeUnits)])
+      ProduceRequest produce = ProduceRequest(1, 1000, [
+        ProduceEnvelope(_topicName, 0, [Message(_message.codeUnits)])
       ]);
 
       ProduceResponse response = await _session.send(_broker, produce);
       _offset = response.results.first.offset;
-      _request = new OffsetRequest(leaderId);
+      _request = OffsetRequest(leaderId);
     });
 
     tearDown(() async {

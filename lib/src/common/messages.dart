@@ -9,7 +9,7 @@ class MessageAttributes {
   /// Compression codec.
   final KafkaCompression compression;
 
-  /// Creates new instance of MessageAttributes.
+  /// Creates instance of MessageAttributes.
   MessageAttributes([this.compression = KafkaCompression.none]);
 
   /// Creates MessageAttributes from the raw byte.
@@ -22,7 +22,7 @@ class MessageAttributes {
       1: KafkaCompression.gzip,
       2: KafkaCompression.snappy,
     };
-    return map[c];
+    return map[c] ?? KafkaCompression.none;
   }
 
   /// Converts this attributes into byte.
@@ -52,16 +52,19 @@ class Message {
 
   /// Optional message key that was used for partition assignment.
   /// The key can be `null`.
-  final List<int> key;
+  final List<int>? key;
 
   /// Default internal constructor.
   Message._(this.attributes, this.key, this.value);
 
-  /// Creates new [Message].
-  factory Message(List<int> value,
-      {MessageAttributes attributes, List<int> key}) {
-    attributes ??= new MessageAttributes();
-    return new Message._(attributes, key, value);
+  /// Creates [Message].
+  factory Message(
+    List<int> value, {
+    MessageAttributes? attributes,
+    List<int>? key,
+  }) {
+    attributes ??= MessageAttributes();
+    return Message._(attributes, key, value);
   }
 }
 
@@ -79,15 +82,19 @@ class ProduceEnvelope {
   /// Compression codec to be used.
   final KafkaCompression compression;
 
-  /// Creates new envelope containing list of messages.
+  /// Creates envelope containing list of messages.
   ///
   /// You can optionally set [compression] codec which will be used to encode
   /// messages.
-  ProduceEnvelope(this.topicName, this.partitionId, this.messages,
-      {this.compression: KafkaCompression.none}) {
+  ProduceEnvelope(
+    this.topicName,
+    this.partitionId,
+    this.messages, {
+    this.compression = KafkaCompression.none,
+  }) {
     messages.forEach((m) {
       if (m.attributes.compression != KafkaCompression.none) {
-        throw new StateError(
+        throw StateError(
             'ProduceEnvelope: compression can not be set on individual messages in ProduceEnvelope, use ProduceEnvelope.compression instead.');
       }
     });

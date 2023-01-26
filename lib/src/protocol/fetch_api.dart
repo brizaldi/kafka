@@ -20,9 +20,9 @@ class FetchRequest extends KafkaRequest {
   /// to give a response.
   final int minBytes;
 
-  Map<String, List<_FetchPartitionInfo>> _topics = new Map();
+  Map<String, List<_FetchPartitionInfo>> _topics = Map();
 
-  /// Creates new instance of FetchRequest.
+  /// Creates instance of FetchRequest.
   FetchRequest(this.maxWaitTime, this.minBytes) : super();
 
   @override
@@ -34,16 +34,19 @@ class FetchRequest extends KafkaRequest {
       [int maxBytes = 65536]) {
     //
     if (!_topics.containsKey(topicName)) {
-      _topics[topicName] = new List();
+      _topics[topicName] = [];
     }
-    _topics[topicName]
-        .add(new _FetchPartitionInfo(partitionId, fetchOffset, maxBytes));
+
+    if (_topics[topicName] != null) {
+      _topics[topicName]!
+          .add(_FetchPartitionInfo(partitionId, fetchOffset, maxBytes));
+    }
   }
 
   @override
   List<int> toBytes() {
-    var builder = new KafkaBytesBuilder.withRequestHeader(
-        apiKey, apiVersion, correlationId);
+    var builder =
+        KafkaBytesBuilder.withRequestHeader(apiKey, apiVersion, correlationId);
 
     builder.addInt32(_replicaId);
     builder.addInt32(maxWaitTime);
@@ -68,7 +71,7 @@ class FetchRequest extends KafkaRequest {
 
   @override
   createResponse(List<int> data) {
-    return new FetchResponse.fromBytes(data);
+    return FetchResponse.fromBytes(data);
   }
 }
 
@@ -92,15 +95,15 @@ class FetchResponse {
 
   FetchResponse._(this.results, this.hasErrors);
 
-  /// Creates new instance of FetchResponse from binary data.
+  /// Creates instance of FetchResponse from binary data.
   factory FetchResponse.fromBytes(List<int> data) {
-    var reader = new KafkaBytesReader.fromBytes(data);
+    var reader = KafkaBytesReader.fromBytes(data);
     var size = reader.readInt32();
     assert(size == data.length - 4);
 
     reader.readInt32(); // correlationId
     var count = reader.readInt32();
-    var results = new List<FetchResult>();
+    var results = <FetchResult>[];
     var hasErrors = false;
     while (count > 0) {
       var topicName = reader.readString();
@@ -111,18 +114,18 @@ class FetchResponse {
         var highwaterMarkOffset = reader.readInt64();
         var messageSetSize = reader.readInt32();
         var data = reader.readRaw(messageSetSize);
-        var messageReader = new KafkaBytesReader.fromBytes(data);
-        var messageSet = new MessageSet.fromBytes(messageReader);
+        var messageReader = KafkaBytesReader.fromBytes(data);
+        var messageSet = MessageSet.fromBytes(messageReader);
         if (errorCode != KafkaServerError.NoError) hasErrors = true;
 
-        results.add(new FetchResult(topicName, partitionId, errorCode,
+        results.add(FetchResult(topicName, partitionId, errorCode,
             highwaterMarkOffset, messageSet));
         partitionCount--;
       }
       count--;
     }
 
-    return new FetchResponse._(results, hasErrors);
+    return FetchResponse._(results, hasErrors);
   }
 }
 

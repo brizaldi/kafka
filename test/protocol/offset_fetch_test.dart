@@ -7,20 +7,20 @@ import '../setup.dart';
 
 void main() {
   group('OffsetFetchApi:', () {
-    KafkaSession _session;
-    OffsetFetchRequest _request;
-    Broker _coordinator;
-    String _testGroup;
+    late KafkaSession _session;
+    late OffsetFetchRequest _request;
+    late Broker _coordinator;
+    late String _testGroup;
 
     setUp(() async {
       var ip = await getDefaultHost();
-      _session = new KafkaSession([new ContactPoint(ip, 9092)]);
-      var now = new DateTime.now();
+      _session = KafkaSession([ContactPoint(ip, 9092)]);
+      var now = DateTime.now();
       _testGroup = 'group:' + now.millisecondsSinceEpoch.toString();
       var metadata = await _session.getConsumerMetadata(_testGroup);
       _coordinator = metadata.coordinator;
-      _request = new OffsetFetchRequest(_testGroup, {
-        'dartKafkaTest': new Set.from([0])
+      _request = OffsetFetchRequest(_testGroup, {
+        'dartKafkaTest': Set.from([0])
       });
     });
 
