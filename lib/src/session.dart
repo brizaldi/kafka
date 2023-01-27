@@ -209,22 +209,20 @@ class KafkaSession {
 
     if (buffer == null) return;
 
-    final size = _sizes[hostPort] ?? -1;
-
     buffer.addAll(d);
-    if (buffer.length >= 4 && size == -1) {
+    if (buffer.length >= 4 && _sizes[hostPort] == -1) {
       var sizeBytes = buffer.sublist(0, 4);
       var reader = KafkaBytesReader.fromBytes(sizeBytes);
       _sizes[hostPort] = reader.readInt32();
     }
 
     List<int>? extra;
-    if (buffer.length > size + 4) {
-      extra = buffer.sublist(size + 4);
-      buffer.removeRange(size + 4, buffer.length);
+    if (buffer.length > _sizes[hostPort]! + 4) {
+      extra = buffer.sublist(_sizes[hostPort]! + 4);
+      buffer.removeRange(_sizes[hostPort]! + 4, buffer.length);
     }
 
-    if (buffer.length == size + 4) {
+    if (buffer.length == _sizes[hostPort]! + 4) {
       var header = buffer.sublist(4, 8);
       var reader = KafkaBytesReader.fromBytes(header);
       var correlationId = reader.readInt32();
